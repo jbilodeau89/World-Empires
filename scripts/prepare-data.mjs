@@ -32,8 +32,53 @@ const PEOPLE_RE = new RegExp(
   'i',
 );
 
+// The source sometimes spells or labels the same state differently from map to map.
+// Mapping variants to one name keeps one colour and one search result per state.
+// Only unambiguous cases belong here (same polity, different spelling/label).
+const SAME_AS = {
+  Han: 'Han Empire',
+  Rome: 'Roman Republic', // the "Rome" entries are 500–200 BC, i.e. the Republic
+  Parthia: 'Parthian Empire',
+  Persi: 'Sasanian Empire', // AD 400 Persia
+  'Tufan Empire': 'Tibetan Empire', // Tufan = the Chinese name for the Tibetan Empire
+  'Kievan Rus': 'Kyivan Rus',
+  'Ming Chinese Empire': 'Ming Empire',
+  'Khanate of the Golden Horde': 'Golden Horde',
+  'Buwayhid Emirates': 'Buyid Emirates',
+  'Buyid Emirate': 'Buyid Emirates',
+  'Rashtrakuta state': 'Rashtrakuta',
+  'Chalukya Empire': 'Western Chalukyas', // the AD 1000 entry is the Western Chalukya dynasty
+  'Kingdom of Sukhotai': 'Sukhothai',
+  Oghuz: 'Oghuz Turks',
+  'Mahratta states': 'Maratha Confederacy',
+  Castille: 'Castile',
+  'Chinese warlords': 'Chinese Warlords',
+  Neterlands: 'Netherlands',
+  UK: 'United Kingdom',
+  'United Kingdom of Great Britain and Ireland': 'United Kingdom',
+  USA: 'United States',
+  'United States of America': 'United States',
+  'Austria Hungary': 'Austria-Hungary',
+  'Austro-Hungarian Empire': 'Austria-Hungary',
+  'Imperial Japan': 'Empire of Japan',
+  'Kingdom of Brazil': 'Empire of Brazil', // source error: Brazil was an empire 1822–1889
+};
+
+// Areas the source draws as separate rulers that belong under one empire.
+// The area keeps its own name (shown as a part of the empire).
+const PART_OF = {
+  'Rome (Diocletianus)': 'Roman Empire', // AD 300: the Tetrarchy's four shares of one empire
+  'Rome (Maximian)': 'Roman Empire',
+  'Rome (Galerius)': 'Roman Empire',
+  'Rome (Constantinus)': 'Roman Empire',
+};
+
 const hasLetters = (s) => typeof s === 'string' && /\p{L}/u.test(s);
-const clean = (s) => (hasLetters(s) ? s.trim().replace(/\s+/g, ' ') : null);
+const clean = (s) => {
+  if (!hasLetters(s)) return null;
+  const t = s.trim().replace(/\s+/g, ' ');
+  return SAME_AS[t] || t;
+};
 
 const yearFromFile = (f) => {
   const m = f.match(/^world_(bc)?(\d+)\.geojson$/);
@@ -108,7 +153,8 @@ for (const { filename: file } of sourceIndex.years) {
   for (const f of gj.features) {
     const p = f.properties || {};
     const name = clean(p.NAME);
-    const empire = clean(p.SUBJECTO) || name;
+    const top = clean(p.SUBJECTO) || name;
+    const empire = PART_OF[top] || top;
     if (!empire || !f.geometry) continue; // open sea, unclaimed land, or a record with no shape
     const kind = PEOPLE_RE.test(empire) ? 'people' : 'state';
     features.push({

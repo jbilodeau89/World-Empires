@@ -9,6 +9,7 @@ A 3D globe you can spin to see **which empires, kingdoms and peoples held which 
 - **Click any territory or name** to see what it is, which provinces or vassals it included, its rough size in km², which maps it appears on, and a "Read more" link.
 - **Timeline.** Drag the slider, use ‹ › or the arrow keys, or press ▶ to watch borders change over time.
 - **States vs. peoples.** Organized states and empires are drawn in solid color. Peoples and cultures (e.g. "Paleo-Siberian hunter-gatherers") are drawn faintly, and a checkbox hides them.
+- **Starting points.** First-time visitors see a few one-click suggestions (Ancient Egypt, Alexander the Great, the Roman Empire at its height, the Mongol conquests, 1492, the eve of World War I).
 - **Shareable links.** The web address updates as you go (e.g. `…#year=-323&empire=Empire of Alexander`), so you can bookmark a view or send it to someone.
 - Each empire keeps the **same color on every map**, so you can follow it through time.
 
@@ -28,12 +29,12 @@ To put it online, upload the folder to any static web host (GitHub Pages, Netlif
 
 The borders come from the [historical-basemaps](https://github.com/aourednik/historical-basemaps) project by André Ourednik and contributors (GPL-3.0). It has **53 snapshots**, with gaps that are wider in ancient times (e.g. 2000 BC → 1500 BC → 1000 BC) and narrower in modern times. Each territory is tagged as approximate, moderately precise or precise, and the app shows that tag.
 
-`npm run prepare-data` re-downloads the source and rebuilds everything in `data/`: it simplifies the shapes so the globe stays fast, fixes a few malformed records, and builds the search index.
+`npm run prepare-data` re-downloads the source and rebuilds everything in `data/`: it simplifies the shapes so the globe stays fast, fixes a few malformed records, merges names the source spells differently for the same state (e.g. "Han" / "Han Empire", "UK" / "United Kingdom"; see `SAME_AS` in `scripts/prepare-data.mjs`), and builds the search index.
 
 ### Known limitations
 
 - Borders are approximate. Ancient frontiers were usually zones of influence, not lines.
-- The source sometimes names the same power differently from map to map (e.g. "Rome", "Roman Republic" and "Roman Empire"), and those show up as separate entries.
+- Clear-cut duplicate names are merged, but successor states are deliberately kept separate (e.g. Roman Republic vs. Roman Empire, Russian Empire vs. USSR vs. Russia).
 - Whether an area counts as a "state" or a "people/culture" is decided by keyword rules (in `scripts/prepare-data.mjs`), so a few entries may be in the wrong group.
 
 ## Licenses

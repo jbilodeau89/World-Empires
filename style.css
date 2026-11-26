@@ -47,6 +47,13 @@ a { color: var(--accent); }
 #suggestions li[aria-selected='true'], #suggestions li:hover { background: rgba(242, 193, 78, 0.18); }
 #status { margin: 8px 0 0; color: var(--muted); font-size: 0.9rem; min-height: 1.2em; }
 #status:empty { display: none; }
+#starters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+#starters[hidden] { display: none; }
+#starters button {
+  font: inherit; font-size: 0.82rem; padding: 5px 9px; border-radius: 999px; cursor: pointer;
+  background: rgba(242, 193, 78, 0.1); color: var(--text); border: 1px solid rgba(242, 193, 78, 0.35);
+}
+#starters button:hover { background: rgba(242, 193, 78, 0.22); }
 
 /* ---------- legend ---------- */
 .legend { top: 16px; right: 16px; width: 280px; max-height: calc(100vh - 190px); display: flex; flex-direction: column; padding: 12px 14px; }

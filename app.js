@@ -31,7 +31,7 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 const fold = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 function formatYear(y) {
-  if (y < 0) return `${Math.abs(y).toLocaleString('en-US')} BC`;
+  if (y < 0) return `${y <= -10000 ? Math.abs(y).toLocaleString('en-US') : -y} BC`;
   if (y < 1000) return `AD ${y}`;
   return String(y);
 }
@@ -401,6 +401,32 @@ function goToEmpire(r) {
   goTo(target, { message: msg, empire: r.name });
 }
 
+/* ---------------- "Try:" starting points for first-time visitors ---------------- */
+
+const starters = document.getElementById('starters');
+function hideStarters() { starters.hidden = true; }
+starters.addEventListener('click', (ev) => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  hideStarters();
+  const { empire, year } = b.dataset;
+  if (empire && state.empireHistory.has(empire)) {
+    const history = state.empireHistory.get(empire);
+    const at = year !== undefined
+      ? history.reduce((a, h) => (Math.abs(state.snapshots[h.index].year - year) < Math.abs(state.snapshots[a.index].year - year) ? h : a))
+      : history.reduce((a, h) => (h.area > a.area ? h : a));
+    const when = formatYear(state.snapshots[at.index].year);
+    goTo(at.index, { empire, message: year !== undefined ? `${empire}, ${when}.` : `${empire} at its largest on these maps (${when}).` });
+  } else if (year !== undefined) {
+    goToYear({ year: Number(year), label: formatYear(Number(year)) });
+  }
+});
+// Once someone starts exploring on their own, the suggestions get out of the way.
+['input', 'focus'].forEach((t) => els.search.addEventListener(t, hideStarters));
+els.slider.addEventListener('input', hideStarters);
+[els.prev, els.next, els.play].forEach((b) => b.addEventListener('click', hideStarters));
+els.globe.addEventListener('pointerdown', hideStarters, { once: true });
+
 els.search.addEventListener('input', showSuggestions);
 els.search.addEventListener('focus', showSuggestions);
 els.search.addEventListener('keydown', (ev) => {
@@ -518,7 +544,8 @@ async function init() {
   els.slider.max = state.snapshots.length - 1;
 
   const { year, empire } = readHash();
-  await goTo(nearestIndex(year), { empire, message: 'Type a year, century, or empire above — or drag the timeline.' });
+  if (location.hash) hideStarters(); // arrived from a shared link
+  await goTo(nearestIndex(year), { empire, message: 'Type a year, century, or empire above, or drag the timeline.' });
   els.loading.classList.add('done');
 }
 
