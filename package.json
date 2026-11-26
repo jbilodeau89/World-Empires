@@ -1,0 +1,15 @@
+{
+  "name": "world-empires",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive 3D globe showing the world's empires and states at different points in history.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "prepare-data": "node scripts/prepare-data.mjs"
+  },
+  "devDependencies": {
+    "d3-geo": "^3.1.2",
+    "mapshaper": "^0.6.0"
+  }
+}

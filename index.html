@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>World Empires</title>
+  <meta name="description" content="Spin a 3D globe and see the empires and states of any period in history." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="globe" aria-label="3D globe of historical empires"></div>
+
+  <header class="panel top">
+    <h1>World Empires</h1>
+    <form id="search-form" autocomplete="off" role="search">
+      <input id="search" type="search" placeholder="Try “500 BC”, “1200”, “5th century”, or “Roman Empire”"
+             aria-label="Search for a year, century, or empire" aria-controls="suggestions" />
+      <ul id="suggestions" role="listbox" hidden></ul>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+  </header>
+
+  <aside class="panel legend" id="legend">
+    <div class="legend-head">
+      <h2 id="legend-title">On this map</h2>
+      <button id="legend-toggle" class="icon-btn" aria-expanded="true" aria-controls="legend-body" title="Hide list">–</button>
+    </div>
+    <div id="legend-body">
+      <label class="check"><input type="checkbox" id="show-peoples" checked /> Show peoples &amp; cultures</label>
+      <label class="check"><input type="checkbox" id="show-labels" checked /> Show names on globe</label>
+      <ol id="legend-list"></ol>
+    </div>
+  </aside>
+
+  <section class="panel info" id="info" hidden aria-live="polite">
+    <button class="icon-btn close" id="info-close" title="Close">×</button>
+    <div id="info-body"></div>
+  </section>
+
+  <footer class="panel timeline">
+    <div class="era" id="era-label"></div>
+    <div class="controls">
+      <button id="prev" class="icon-btn" title="Earlier map (←)">‹</button>
+      <button id="play" class="icon-btn" title="Play through time">▶</button>
+      <input id="slider" type="range" min="0" max="0" value="0" aria-label="Time period" />
+      <button id="next" class="icon-btn" title="Later map (→)">›</button>
+    </div>
+    <p class="credit">
+      Borders: <a href="https://github.com/aourednik/historical-basemaps" target="_blank" rel="noopener">historical-basemaps</a>
+      by A. Ourednik et al. (GPL-3.0). Borders are approximate — most ancient frontiers were zones, not lines.
+    </p>
+  </footer>
+
+  <div id="loading">Loading the world…</div>
+
+  <script src="assets/vendor/globe.gl.min.js"></script>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
