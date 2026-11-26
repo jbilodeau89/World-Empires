@@ -27,7 +27,7 @@ const PEOPLE_RE = new RegExp(
     'aborigin', 'herder', 'fisher', 'khoisan', 'neanderthal', 'homo ', 'mesolithic', 'neolithic',
     'horticultur', 'cultivators', 'agricultur', 'hunting', 'austronesian', 'bantu', 'dravidian',
     'semites', '^celts$', 'berbers', 'tuareg', 'touareg', 'bedouin', '^arabs$', '^malays?$', 'papuans?$',
-    '^sa+mi', '^samis$', '^inuit$', 'athaba', '^tupis$', 'siberians', 'slavs',
+    '^sa+mi$', '^samis$', '^inuit$', 'athaba', '^tupis$', 'siberians', 'slavs',
   ].join('|'),
   'i',
 );
@@ -62,6 +62,9 @@ const SAME_AS = {
   'Austro-Hungarian Empire': 'Austria-Hungary',
   'Imperial Japan': 'Empire of Japan',
   'Kingdom of Brazil': 'Empire of Brazil', // source error: Brazil was an empire 1822–1889
+  Saami: 'Sámi',
+  Sami: 'Sámi',
+  Samis: 'Sámi',
   Nemay: 'Neman culture', // Stone Age culture of the Neman river basin (Lithuania)
   'Mexihcah (Triple Alliance)': 'Aztec Empire', // 1492 map uses the Nahuatl name
 };
@@ -136,7 +139,32 @@ const NAME_BY_YEAR = {
   // the 1492 map labels the Inca Empire's territory with the name of its main language/people
   Quechua: { 1492: 'Inca Empire' },
 };
-const renameForYear = (name, year) => (name && NAME_BY_YEAR[name]?.[year]) || name;
+const renameForYear = (name, year) => (name && (NAME_BY_YEAR[name]?.[year] || (year === 1492 && RENAME_1492[name]))) || name;
+
+// The source's 1492 map of the Americas was built from a present-day map of Indigenous territories,
+// so it includes names and lands that did not exist in 1492. Fixes, checked so that every removed
+// area is also covered by a correct 1492 nation (nothing is left blank):
+//  - DROP: lands of nations forcibly removed to Oklahoma (1830s+), modern reservations and
+//    rancherias, and groups that formed after contact (Seminole, Métis, 1855 confederated reservations)
+//  - RENAME: modern governments or land-claim names standing on the nation's own traditional land
+const DROP_1492 = new RegExp([
+  '\\(Oklahoma\\)', '^Seminole', 'Rancheria', 'Mount Tabor Indian Community', '^Wyandot \\(Anderdon\\)',
+  'Michif Piyii', '^Mountain Métis$', '^NWT Métis Nation$', 'Kelly Lake Metis', '^Confederated Tribes',
+  '^Salish Kootenai', '^Salish & Kootenai Tribes$', 'Mississaugas of the Credit', '^Aseniwuche Winewak', '^Hoopa \\(Reservation\\)$',
+].join('|'));
+const RENAME_1492 = {
+  'Teslin Tlingit Council (Yukon)': 'Inland Tlingit (Teslin)',
+  'Teslin Tlingit Council (BC)': 'Inland Tlingit (Teslin)',
+  'Carcross/Tagish First Nation (Yukon)': 'Tagish',
+  'Carcross/Tagish First Nation (BC)': 'Tagish',
+  "Gwitch'in Settlement Region": "Gwich'in Nành",
+  'Tagé Cho Hudän (Little Salmon/Carmacks)': 'Northern Tutchone (Tagé Cho Hudän)',
+  'Sahtu Dene and Metis': 'Sahtu Dene',
+  'Confederated Villages of Lisjan': 'Lisjan Ohlone',
+  'Skaruhreh/Tuscarora (North Carolina)': 'Skaruhreh (Tuscarora)',
+  'Mohawk (Kalapuya)': 'Kalapuya (Mohawk River)',
+};
+const droppedIn1492 = (...names) => names.some((n) => n && DROP_1492.test(n));
 
 // Short notes shown on an entry's card.
 const NOTES = {
@@ -164,6 +192,8 @@ const AMERICAS_STATES = new Set([
   'Wallis and Futuna Islands',
 ]);
 const isAmericasNation = (name, year, lng) => year >= 1492 && lng < -30 && !AMERICAS_STATES.has(name);
+// Broad descriptive groupings stay 'people' even in the Americas (they name a way of life or a language family).
+const DESCRIPTIVE = /hunter|gatherer|forager|fisher|tribes|cultures|peoples|polynesians|athaba/i;
 
 const earlyNote = (name, year) => (BECAME_STATE[name] && year < BECAME_STATE[name].from ? BECAME_STATE[name] : null);
 const kindOf = (name, year) => earlyNote(name, year)?.before || KIND_OF.get(fold(name))
@@ -172,7 +202,7 @@ const kindOf = (name, year) => earlyNote(name, year)?.before || KIND_OF.get(fold
 const hasLetters = (s) => typeof s === 'string' && /\p{L}/u.test(s);
 const clean = (s) => {
   if (!hasLetters(s)) return null;
-  const t = s.trim().replace(/\s+/g, ' ');
+  const t = s.normalize('NFC').trim().replace(/\s+/g, ' '); // NFC: same letters, same encoding
   return SAME_AS[t] || t;
 };
 
@@ -252,6 +282,7 @@ for (const { filename: file } of sourceIndex.years) {
     const top = renameForYear(clean(p.SUBJECTO), year) || name;
     const empire = PART_OF[top] || top;
     if (!empire || !f.geometry) continue; // open sea, unclaimed land, or a record with no shape
+    if (year === 1492 && droppedIn1492(clean(p.NAME), clean(p.SUBJECTO))) continue;
     const kind = kindOf(empire, year);
     features.push({
       type: 'Feature',
@@ -274,7 +305,8 @@ for (const { filename: file } of sourceIndex.years) {
 
   // Now that each group's location is known, label Indigenous nations of the Americas.
   for (const g of groups.values()) {
-    if (g.kind === 'state' && g.best && isAmericasNation(g.name, year, g.best[0])) g.kind = 'nation';
+    if (!g.best || !isAmericasNation(g.name, year, g.best[0])) continue;
+    if (g.kind === 'state' || (g.kind === 'people' && !DESCRIPTIVE.test(g.name))) g.kind = 'nation';
   }
   for (const f of features) f.properties.KIND = groups.get(f.properties.EMPIRE).kind;
 

@@ -65,6 +65,20 @@ const KIND_TEXT = {
 // States and nations are political communities: drawn solid and never hidden by the peoples/cultures toggle.
 const isPolity = (kind) => kind === 'state' || kind === 'nation';
 
+// The globe's label font only has plain English letters, so names written in other scripts or with
+// special characters would show as "???". Make a plain-letter version for the globe only
+// (the side panel and cards always show the full name).
+function globeLabel(name) {
+  const plain = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[ŋŊ]/g, 'n').replace(/[ʔɁˀ]/g, "'").replace(/[ɬƚł]/g, 'l').replace(/Ł/g, 'L').replace(/Đ/g, 'D').replace(/[đð]/g, 'd').replace(/ß/g, 'ss').replace(/[øØ]/g, 'o').replace(/[æÆ]/g, 'ae')
+    .replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim();
+  const full = plain(name);
+  const lostLetters = name.normalize('NFD').replace(/[\u0300-\u036f\s]/g, '').length - full.replace(/\s/g, '').length > 0;
+  const english = name.match(/\(([^)]*)\)\s*$/);
+  if (lostLetters && english && plain(english[1])) return plain(english[1]);
+  return full.replace(/\(\s*\)/g, '').trim() || name;
+}
+
 function hash(str) {
   let h = 2166136261;
   for (const ch of str) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }
@@ -204,7 +218,7 @@ const world = Globe({ animateIn: true })(els.globe)
   .onGlobeClick(() => selectEmpire(null))
   .labelLat('lat')
   .labelLng('lng')
-  .labelText('name')
+  .labelText((d) => globeLabel(d.name))
   .labelSize((d) => Math.min(2, 0.8 + Math.sqrt(d.area) * 0.3))
   .labelDotRadius(0)
   .labelColor(() => 'rgba(255, 255, 255, 0.95)')

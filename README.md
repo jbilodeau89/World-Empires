@@ -33,7 +33,8 @@ The borders come from the [historical-basemaps](https://github.com/aourednik/his
 
 ### Known limitations
 
-- The source's 1492 map of the Americas mixes historical nations with some present-day names (e.g. "Cherokee (Oklahoma)", reservation names) that did not exist in 1492.
+- The source's 1492 map of the Americas was built from a present-day map of Indigenous territories. The data step removes entries that did not exist in 1492 (lands of nations removed to Oklahoma in the 1830s, modern reservations and rancherias, groups that formed after contact) and renames modern governments to the nation they represent (`DROP_1492` and `RENAME_1492` in `scripts/prepare-data.mjs`). Each removed area was checked to be covered by a correct 1492 nation. Some territories still reflect later movements (e.g. the Kickapoo area is very large).
+- Names on the globe itself are shown in plain letters (the 3D label font has no accents or non-Latin scripts); the side panel and info cards show the full name.
 
 - Borders are approximate. Ancient frontiers were usually zones of influence, not lines.
 - Clear-cut duplicate names are merged, but successor states are deliberately kept separate (e.g. Roman Republic vs. Roman Empire, Russian Empire vs. USSR vs. Russia).
