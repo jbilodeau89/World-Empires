@@ -12,6 +12,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import mapshaper from 'mapshaper';
 import { geoArea } from 'd3-geo';
+import { REGIONS, REGION_BY_NAME, regionOf } from './regions.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const rawDir = join(root, '.cache', 'raw');
@@ -175,6 +176,7 @@ const NOTES = {
 // governments but were not states in the European sense, so they get their own label. These are
 // the entries there that ARE states (empires, colonies, modern countries); everything else is a nation.
 const AMERICAS_STATES = new Set([
+  'Kalmar Union', // 1500: its largest piece is Greenland
   'Aztec Empire', 'Inca Empire', 'Mixtec Empire', 'Maya city-states', 'Kingdom of Hawaii',
   'P’urhépecha', "K'iche'", 'Kaqchikel', // Tarascan state and highland Maya kingdoms, 1492
   'Viceroyalty of New Spain', 'Viceroyalty of the Río de la Plata', 'Cuba (Spain)', 'Hispaniola (Spain)',
@@ -308,13 +310,36 @@ for (const { filename: file } of sourceIndex.years) {
     if (!g.best || !isAmericasNation(g.name, year, g.best[0])) continue;
     if (g.kind === 'state' || (g.kind === 'people' && !DESCRIPTIVE.test(g.name))) g.kind = 'nation';
   }
-  for (const f of features) f.properties.KIND = groups.get(f.properties.EMPIRE).kind;
+  // Group Indigenous nations and peoples of the Americas into cultural regions (see regions.mjs).
+  const regionTotals = new Map();
+  for (const g of groups.values()) {
+    if (year < 1492 || !g.best || (g.kind !== 'nation' && g.kind !== 'people')) continue;
+    g.region = REGION_BY_NAME[g.name] || regionOf(g.best[1], g.best[0]);
+    if (!g.region) continue;
+    // label point for the region: area-weighted average of its members' locations
+    const t = regionTotals.get(g.region) || { area: 0, lat: 0, lng: 0 };
+    const w = Math.max(g.area, 0.01);
+    t.area += w; t.lat += g.best[1] * w; t.lng += g.best[0] * w;
+    regionTotals.set(g.region, t);
+  }
+  for (const f of features) {
+    const g = groups.get(f.properties.EMPIRE);
+    f.properties.KIND = g.kind;
+    if (g.region) f.properties.REGION = g.region;
+  }
 
   writeFileSync(join(outDir, file), JSON.stringify({ type: 'FeatureCollection', features }));
 
   snapshots.push({
     year,
     file,
+    regions: [...regionTotals].map(([name, t]) => ({
+      name,
+      area: Math.round(t.area * 10) / 10,
+      // fixed label spot if defined, otherwise the area-weighted centre of the region's nations
+      lat: REGIONS[name].label?.[0] ?? Math.round((t.lat / t.area) * 100) / 100,
+      lng: REGIONS[name].label?.[1] ?? Math.round((t.lng / t.area) * 100) / 100,
+    })).sort((a, b) => b.area - a.area),
     empires: [...groups.values()]
       .filter((g) => g.best)
       .sort((a, b) => b.area - a.area)
@@ -325,6 +350,7 @@ for (const { filename: file } of sourceIndex.years) {
         lng: Math.round(g.best[0] * 100) / 100,
         lat: Math.round(g.best[1] * 100) / 100,
         prec: g.prec,
+        ...(g.region && { region: g.region }),
         ...((earlyNote(g.name, year) || NOTES[g.name]) && { note: earlyNote(g.name, year)?.note || NOTES[g.name] }),
         parts: [...g.parts].sort(),
       })),
@@ -333,5 +359,5 @@ for (const { filename: file } of sourceIndex.years) {
 }
 
 snapshots.sort((a, b) => a.year - b.year);
-writeFileSync(join(outDir, 'index.json'), JSON.stringify({ snapshots }));
+writeFileSync(join(outDir, 'index.json'), JSON.stringify({ regions: REGIONS, snapshots }));
 console.log(`Done: ${snapshots.length} snapshots written to data/.`);

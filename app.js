@@ -23,6 +23,7 @@ const state = {
   playing: null,
   cache: new Map(),
   empireHistory: new Map(), // empire name -> [{index, area}]
+  regionHues: {}, // cultural region name -> { hue }
 };
 
 /* ---------------- helpers ---------------- */
@@ -86,8 +87,23 @@ function hash(str) {
 }
 
 // Each empire keeps the same colour on every map, so you can follow it through time.
-function colorFor(name, kind, { alpha, solid = false } = {}) {
+// Cultural regions of the Americas (hues come from data/index.json; see scripts/regions.mjs).
+function regionColor(region, { alpha = 1, light = 55 } = {}) {
+  const hue = state.regionHues[region]?.hue ?? 0;
+  return `hsla(${hue}, 70%, ${light}%, ${alpha})`;
+}
+
+// Nations in a cultural region share their region's colour family (varied shades), so the region
+// reads as one block from far away while each nation stays distinguishable up close.
+function colorFor(name, kind, { alpha, solid = false } = {}, region = null) {
   const h = hash(name);
+  if (region && state.regionHues[region]) {
+    const hue = (state.regionHues[region].hue + ((h % 17) - 8) + 360) % 360;
+    const sat = 45 + ((h >>> 9) % 30);
+    const light = 38 + ((h >>> 17) % 26);
+    const a = alpha ?? (solid ? 1 : kind === 'people' ? 0.4 : 0.82);
+    return `hsla(${hue}, ${sat}%, ${light}%, ${a})`;
+  }
   const hue = h % 360;
   if (kind === 'people') return `hsla(${hue}, 14%, ${solid ? 55 : 62}%, ${alpha ?? (solid ? 1 : 0.32)})`;
   if (kind === 'culture') return `hsla(${hue}, 28%, ${solid ? 50 : 58}%, ${alpha ?? (solid ? 1 : 0.3)})`;
@@ -190,9 +206,9 @@ const world = Globe({ animateIn: true })(els.globe)
   .polygonsTransitionDuration(350)
   .polygonCapColor((f) => {
     const p = f.properties;
-    if (p.EMPIRE === state.selected) return colorFor(p.EMPIRE, p.KIND, { alpha: 0.97 });
-    if (p.EMPIRE === state.hovered) return colorFor(p.EMPIRE, p.KIND, { alpha: isPolity(p.KIND) ? 0.92 : 0.55 });
-    return colorFor(p.EMPIRE, p.KIND);
+    if (p.EMPIRE === state.selected) return colorFor(p.EMPIRE, p.KIND, { alpha: 0.97 }, p.REGION);
+    if (p.EMPIRE === state.hovered) return colorFor(p.EMPIRE, p.KIND, { alpha: isPolity(p.KIND) ? 0.92 : 0.55 }, p.REGION);
+    return colorFor(p.EMPIRE, p.KIND, {}, p.REGION);
   })
   .polygonSideColor(() => 'rgba(0, 0, 0, 0.25)')
   .polygonStrokeColor((f) => (isPolity(f.properties.KIND) ? 'rgba(15, 15, 20, 0.7)' : 'rgba(255,255,255,0.12)'))
@@ -204,7 +220,8 @@ const world = Globe({ animateIn: true })(els.globe)
   })
   .polygonLabel((f) => {
     const p = f.properties;
-    const sub = p.NAME !== p.EMPIRE ? `<small>part of ${escapeHtml(p.EMPIRE)}</small>` : KIND_TEXT[p.KIND].tag ? `<small>${KIND_TEXT[p.KIND].tag}</small>` : '';
+    const tag = [KIND_TEXT[p.KIND].tag, p.REGION && `${p.REGION} region`].filter(Boolean).join(' · ');
+    const sub = p.NAME !== p.EMPIRE ? `<small>part of ${escapeHtml(p.EMPIRE)}</small>` : tag ? `<small>${escapeHtml(tag)}</small>` : '';
     return `<div class="tip"><b>${escapeHtml(p.NAME)}</b>${sub}</div>`;
   })
   .onPolygonHover((f) => {
@@ -218,10 +235,10 @@ const world = Globe({ animateIn: true })(els.globe)
   .onGlobeClick(() => selectEmpire(null))
   .labelLat('lat')
   .labelLng('lng')
-  .labelText((d) => globeLabel(d.name))
-  .labelSize((d) => Math.min(2, 0.8 + Math.sqrt(d.area) * 0.3))
+  .labelText((d) => (d.isRegion ? d.name.toUpperCase() : globeLabel(d.name)))
+  .labelSize((d) => (d.isRegion ? 1.3 : Math.min(2, 0.8 + Math.sqrt(d.area) * 0.3)))
   .labelDotRadius(0)
-  .labelColor(() => 'rgba(255, 255, 255, 0.95)')
+  .labelColor((d) => (d.isRegion ? regionColor(d.name, { light: 86 }) : 'rgba(255, 255, 255, 0.95)'))
   .labelResolution(3)
   .labelAltitude(0.035)
   .labelsTransitionDuration(0);
@@ -244,7 +261,9 @@ function visibleFeatures() {
 function updateLabels() {
   if (!els.showLabels.checked) return world.labelsData([]);
   const snap = state.snapshots[state.index];
-  const labels = snap.empires.filter((e) => isPolity(e.kind)).slice(0, LABEL_COUNT);
+  // Nations grouped into a cultural region are named by their region instead (too many to label one by one).
+  const labels = snap.empires.filter((e) => isPolity(e.kind) && !e.region).slice(0, LABEL_COUNT);
+  labels.push(...(snap.regions || []).map((r) => ({ ...r, isRegion: true })));
   const sel = snap.empires.find((e) => e.name === state.selected);
   if (sel && !labels.includes(sel)) labels.push(sel);
   world.labelsData(labels);
@@ -312,6 +331,23 @@ function flyTo(name) {
   world.pointOfView({ lat: e.lat, lng: e.lng, altitude }, 1200);
 }
 
+function flyToRegion(name) {
+  const r = (state.snapshots[state.index].regions || []).find((x) => x.name === name);
+  if (r) world.pointOfView({ lat: r.lat, lng: r.lng, altitude: 1.3 }, 1200);
+}
+
+// Regions exist on the maps from 1492 on; stay on the current map if it has the region.
+async function goToRegion(name) {
+  let i = state.index;
+  if (!(state.snapshots[i].regions || []).some((r) => r.name === name)) {
+    i = state.snapshots.findIndex((sn) => (sn.regions || []).some((r) => r.name === name));
+  }
+  await goTo(i, { message: `${name}: a cultural region of the Indigenous Americas, ${formatYear(state.snapshots[i].year)} map.`, empire: null });
+  state.selected = null;
+  selectEmpire(null);
+  flyToRegion(name);
+}
+
 function selectEmpire(name, { fly = true } = {}) {
   state.selected = name;
   refreshPolygonStyles();
@@ -327,16 +363,26 @@ function selectEmpire(name, { fly = true } = {}) {
 function renderLegend() {
   const snap = state.snapshots[state.index];
   const states = snap.empires.filter((e) => e.kind === 'state');
-  const nations = snap.empires.filter((e) => e.kind === 'nation');
-  const others = (kind) => (els.showPeoples.checked ? snap.empires.filter((e) => e.kind === kind) : []);
+  const nations = snap.empires.filter((e) => e.kind === 'nation' && !e.region);
+  const others = (kind) => (els.showPeoples.checked ? snap.empires.filter((e) => e.kind === kind && !e.region) : []);
+  const inRegion = (r) => snap.empires.filter((e) => e.region === r.name && (e.kind === 'nation' || els.showPeoples.checked));
   const peoples = others('people');
   const cultures = others('culture');
   const item = (e) => `
     <li class="${e.kind}${e.name === state.selected ? ' active' : ''}" data-name="${escapeHtml(e.name)}" tabindex="0">
-      <span class="swatch" style="background:${colorFor(e.name, e.kind, { solid: true })}"></span>${escapeHtml(e.name)}
+      <span class="swatch" style="background:${colorFor(e.name, e.kind, { solid: true }, e.region)}"></span>${escapeHtml(e.name)}
     </li>`;
+  const regionGroup = (r) => {
+    const members = inRegion(r);
+    if (!members.length) return '';
+    return `<li class="legend-region" data-region="${escapeHtml(r.name)}" tabindex="0" title="Show this region on the globe">
+        <span class="swatch" style="background:${regionColor(r.name)}"></span>${escapeHtml(r.name)}<small>${members.length}</small>
+      </li>${members.map(item).join('')}`;
+  };
+  const regionsHtml = (snap.regions || []).map(regionGroup).join('');
   els.legendList.innerHTML =
     `<li class="legend-sub">States &amp; empires (largest first)</li>${states.map(item).join('')}` +
+    (regionsHtml ? `<li class="legend-sub">Indigenous nations of the Americas, by cultural region</li>${regionsHtml}` : '') +
     (nations.length ? `<li class="legend-sub">Nations &amp; confederacies</li>${nations.map(item).join('')}` : '') +
     (peoples.length ? `<li class="legend-sub">Peoples</li>${peoples.map(item).join('')}` : '') +
     (cultures.length ? `<li class="legend-sub">Archaeological cultures</li>${cultures.map(item).join('')}` : '');
@@ -358,8 +404,10 @@ function renderInfo() {
   const peakBtn = peak.index !== state.index
     ? `<button data-go="${peak.index}">See it at its largest (${formatYear(state.snapshots[peak.index].year)})</button>` : '';
   els.infoBody.innerHTML = `
-    <h3><span class="swatch" style="background:${colorFor(e.name, e.kind, { solid: true })}"></span>${escapeHtml(e.name)}</h3>
+    <h3><span class="swatch" style="background:${colorFor(e.name, e.kind, { solid: true }, e.region)}"></span>${escapeHtml(e.name)}</h3>
     <p class="muted">${KIND_TEXT[e.kind].card} · ${formatYear(snap.year)} map</p>
+    ${e.region ? `<p>Cultural region: <strong>${escapeHtml(e.region)}</strong></p>
+      <p class="muted small">Cultural regions group peoples who shared an environment and way of life. They were drawn by anthropologists and their edges are approximate.</p>` : ''}
     ${e.note ? `<p>${escapeHtml(e.note)}</p>` : ''}
     <p>Appears ${spanText(history)}${history.length > 1 ? ` (${history.length} maps)` : ''}.
       ${peak.index === state.index && history.length > 1 ? '<strong>This is its largest extent on these maps.</strong>' : ''}</p>
@@ -389,6 +437,13 @@ function buildSuggestions(text) {
       detail: snapYear === parsed.year ? 'Map available' : `Closest map: ${formatYear(snapYear)}`,
       run: () => goToYear(parsed),
     });
+  }
+  const q = fold(text).trim();
+  if (q.length >= 3) {
+    for (const name of Object.keys(state.regionHues)) {
+      if (!fold(name).includes(q)) continue;
+      items.push({ title: `${name} (cultural region)`, detail: 'Indigenous nations of the Americas, 1492 on', run: () => goToRegion(name) });
+    }
   }
   for (const r of searchEmpires(text)) {
     items.push({
@@ -522,6 +577,8 @@ document.addEventListener('keydown', (ev) => {
 });
 
 els.legendList.addEventListener('click', (ev) => {
+  const region = ev.target.closest('li[data-region]');
+  if (region) return flyToRegion(region.dataset.region);
   const li = ev.target.closest('li[data-name]');
   if (li) selectEmpire(li.dataset.name === state.selected ? null : li.dataset.name);
 });
@@ -573,7 +630,9 @@ function readHash() {
 
 async function init() {
   const res = await fetch('data/index.json');
-  state.snapshots = (await res.json()).snapshots;
+  const data = await res.json();
+  state.snapshots = data.snapshots;
+  state.regionHues = data.regions || {};
   state.snapshots.forEach((s, index) =>
     s.empires.forEach((e) => {
       if (!state.empireHistory.has(e.name)) state.empireHistory.set(e.name, []);

@@ -68,6 +68,9 @@ a { color: var(--accent); }
   cursor: pointer; font-size: 0.9rem;
 }
 #legend-list li:hover, #legend-list li.active { background: rgba(255, 255, 255, 0.1); }
+#legend-list li.legend-region { margin-top: 8px; font-weight: 600; }
+#legend-list li.legend-region small { margin-left: auto; color: var(--muted); font-weight: 400; }
+.info p.small { font-size: 0.8rem; }
 #legend-list li.people, #legend-list li.culture { color: var(--muted); font-style: italic; }
 .swatch { flex: none; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.5); }
 .legend-sub { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 12px 6px 4px; cursor: default; }
