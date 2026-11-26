@@ -8,7 +8,7 @@ A 3D globe you can spin to see **which empires, kingdoms and peoples held which 
 - **Search by empire.** Choosing an empire jumps to the map where it is **largest** and flies the globe to it.
 - **Click any territory or name** to see what it is, which provinces or vassals it included, its rough size in km², which maps it appears on, and a "Read more" link.
 - **Timeline.** Drag the slider, use ‹ › or the arrow keys, or press ▶ to watch borders change over time.
-- **States vs. peoples.** Organized states and empires are drawn in solid color. Peoples and cultures (e.g. "Paleo-Siberian hunter-gatherers") are drawn faintly, and a checkbox hides them.
+- **States, peoples and archaeological cultures.** Organized states and empires are drawn in solid color. Peoples (ethnic, language or tribal groups, e.g. Scythians) and archaeological cultures (groups named for their pottery or tools, e.g. Funnel-Beaker, Olmec) are drawn faintly, and a checkbox hides them. Names the source uses for a region before any state existed there (e.g. Egypt in 4000 BC) are shown as a culture or people until the state's founding date, with a note.
 - **Starting points.** First-time visitors see a few one-click suggestions (Ancient Egypt, Alexander the Great, the Roman Empire at its height, the Mongol conquests, 1492, the eve of World War I).
 - **Shareable links.** The web address updates as you go (e.g. `…#year=-323&empire=Empire of Alexander`), so you can bookmark a view or send it to someone.
 - Each empire keeps the **same color on every map**, so you can follow it through time.
@@ -35,7 +35,7 @@ The borders come from the [historical-basemaps](https://github.com/aourednik/his
 
 - Borders are approximate. Ancient frontiers were usually zones of influence, not lines.
 - Clear-cut duplicate names are merged, but successor states are deliberately kept separate (e.g. Roman Republic vs. Roman Empire, Russian Empire vs. USSR vs. Russia).
-- Whether an area counts as a "state" or a "people/culture" is decided by keyword rules (in `scripts/prepare-data.mjs`), so a few entries may be in the wrong group.
+- Every name that appears before 1492 was classified by hand as a state, people or archaeological culture (`KIND_LIST` and `BECAME_STATE` in `scripts/prepare-data.mjs`). Later names fall back to keyword rules, so a few may still be in the wrong group.
 
 ## Licenses
 

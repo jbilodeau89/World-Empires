@@ -27,7 +27,7 @@ const PEOPLE_RE = new RegExp(
     'aborigin', 'herder', 'fisher', 'khoisan', 'neanderthal', 'homo ', 'mesolithic', 'neolithic',
     'horticultur', 'cultivators', 'agricultur', 'hunting', 'austronesian', 'bantu', 'dravidian',
     'semites', '^celts$', 'berbers', 'tuareg', 'touareg', 'bedouin', '^arabs$', '^malays?$', 'papuans?$',
-    '^sa+mi', '^samis$', '^inuit$', '^thule$', '^dorset$', 'athaba', '^tupis$', 'siberians', 'slavs',
+    '^sa+mi', '^samis$', '^inuit$', 'athaba', '^tupis$', 'siberians', 'slavs',
   ].join('|'),
   'i',
 );
@@ -62,6 +62,7 @@ const SAME_AS = {
   'Austro-Hungarian Empire': 'Austria-Hungary',
   'Imperial Japan': 'Empire of Japan',
   'Kingdom of Brazil': 'Empire of Brazil', // source error: Brazil was an empire 1822–1889
+  Nemay: 'Neman culture', // Stone Age culture of the Neman river basin (Lithuania)
 };
 
 // Areas the source draws as separate rulers that belong under one empire.
@@ -72,6 +73,63 @@ const PART_OF = {
   'Rome (Galerius)': 'Roman Empire',
   'Rome (Constantinus)': 'Roman Empire',
 };
+
+// ---- What kind of group is each area? ----------------------------------------------
+// state   = an organized political power (kingdom, empire, city-state, khaganate, ...)
+// culture = an archaeological culture: named by archaeologists for shared pottery, tools or
+//           burial customs; known from material remains, not as a political unit
+// people  = an ethnic, language or tribal group shown without a state of its own
+// Hand-checked lists come first; the keyword rule (PEOPLE_RE) catches the rest.
+const fold = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const KIND_LIST = {
+  culture: [
+    // Neolithic, Chalcolithic and Bronze Age Eurasia
+    'Jōmon', 'Funnel-Beaker', 'Early combware', 'Narva', 'Kelteminar', 'Volga-Kamm', 'Ubaid', 'Namazga',
+    'Amuq D', 'Naquada I', 'Dimini', 'Ghassul', 'Indus valley civilization', 'Minoan', 'Cycladic',
+    'Afanasevo', 'Andronovo', 'Oxus', 'Beaker', 'Sintashta', 'Únětice', 'Yayoi',
+    // the Americas
+    'Norte Chico', 'Valdivia', 'Chorrera', 'El Paraiso', 'Chinchoros', 'Chavin', 'Olmec', 'Paracas',
+    'Wankarani', 'Nazca', 'Moche', 'Veracruz civilization', 'Anasazi', 'Mogollon',
+    'Laurel complex', 'Point Peninsula', 'Couture Complex', 'Goodall Focus', 'Porter', 'Copena', 'Miller',
+    'Saugeen Complex', 'Thule', 'Dorset',
+    // northern Russian lake cultures
+    'Lake Segozerskoye', 'Lake Vygozero',
+  ],
+  people: [
+    // ancient Eurasia
+    'Thai', 'Tibeto-Burmanese', 'Koreans', 'Paleo-Koreans', 'Tibetans', 'Burmese', 'Vedic Aryans',
+    'Cimerians', 'Celtiberians', 'Arameans', 'Illyrians', 'Phrygians', 'Boii', 'Curonians', 'Samnites',
+    'Sabini', 'Sabines', 'Scythians', 'Yuezhi', 'Mon-Khmer', 'Tungus', 'Norsemen', 'Northmen', 'Sarmates',
+    'Saces', 'Dacians', 'Alans', 'Blemmyes', 'Iron Age chieftainships',
+    // migration-period and early medieval Europe
+    'Heruli', 'Geats', 'Swedes', 'Swedes and Goths', 'Alamans', 'Franks', 'Saxons', 'Anglo-Saxons',
+    'Basques', 'Frisians', 'Danes', 'Picts', 'Welsh', 'Scots', 'Balts', 'Prussians', 'Kurs', 'Ests',
+    'Kryvichs', 'Polanes', 'Polyanians', 'Severians', 'Moravians', 'Huns', 'Sabirs', 'West Getaes',
+    'East Getaes', 'Magyars', 'Pechenegs',
+    // Inner Asia, Siberia, Volga and the Caucasus
+    'Kurykans', 'Karluks', 'Oghuz Turks', 'Khitans', 'Mongols', 'Karakalpaks', 'Samoyèdes', 'Permians',
+    'Bashkirs', 'Finns', 'Mordvinians', 'Veps', 'Mari', 'Karelians', 'Chuds', 'Leks', 'Khundzi', 'Durdzuks',
+    // Africa, the Pacific, the Americas and the Arctic
+    'Kushites', 'Cushites', 'Mandes', 'Azandes', 'Malagasy', 'Guanches', 'Polynesians', 'Maori',
+    'Paleo-Inuit', 'Ainu', 'Ainus', 'Sámi', 'Ciboney', 'Guanahatabeyes', 'Arawaks', 'Taino', 'Kalinago',
+    'Beothuk', 'Boethuk', 'Innu', 'Shuar', 'Ibadites',
+  ],
+};
+// The source uses some names for their region long before a state existed there.
+// Before `from` (approximate year the state formed) the area is shown as `before`, with a note.
+const BECAME_STATE = {
+  Egypt: { from: -3100, before: 'culture', note: 'Predynastic Egypt: Egypt was unified into one kingdom around 3100 BC.' },
+  Elam: { from: -3200, before: 'culture', note: 'Before Elam: the first Elamite state appears around 3200 BC.' },
+  Ur: { from: -2900, before: 'culture', note: 'Before the city-state: Ur became a Sumerian city-state around 2900 BC.' },
+  Kerma: { from: -2500, before: 'culture', note: 'Before the Kingdom of Kerma, which formed around 2500 BC.' },
+  'Hurrian Kingdoms': { from: -2300, before: 'people', note: 'Hurrian kingdoms only appear around 2300 BC.' },
+  Hittites: { from: -1650, before: 'people', note: 'The Hittite kingdom was founded around 1650 BC.' },
+};
+
+const KIND_OF = new Map(Object.entries(KIND_LIST).flatMap(([kind, names]) => names.map((n) => [fold(n), kind])));
+const earlyNote = (name, year) => (BECAME_STATE[name] && year < BECAME_STATE[name].from ? BECAME_STATE[name] : null);
+const kindOf = (name, year) => earlyNote(name, year)?.before || KIND_OF.get(fold(name))
+  || (/\b(culture|complex)\b/i.test(name) ? 'culture' : PEOPLE_RE.test(fold(name)) ? 'people' : 'state');
 
 const hasLetters = (s) => typeof s === 'string' && /\p{L}/u.test(s);
 const clean = (s) => {
@@ -156,7 +214,7 @@ for (const { filename: file } of sourceIndex.years) {
     const top = clean(p.SUBJECTO) || name;
     const empire = PART_OF[top] || top;
     if (!empire || !f.geometry) continue; // open sea, unclaimed land, or a record with no shape
-    const kind = PEOPLE_RE.test(empire) ? 'people' : 'state';
+    const kind = kindOf(empire, year);
     features.push({
       type: 'Feature',
       properties: { NAME: name || empire, EMPIRE: empire, KIND: kind, PREC: p.BORDERPRECISION || 1 },
@@ -191,6 +249,7 @@ for (const { filename: file } of sourceIndex.years) {
         lng: Math.round(g.best[0] * 100) / 100,
         lat: Math.round(g.best[1] * 100) / 100,
         prec: g.prec,
+        ...(earlyNote(g.name, year) && { note: earlyNote(g.name, year).note }),
         parts: [...g.parts].sort(),
       })),
   });
