@@ -52,13 +52,18 @@ function ordinal(n) {
 // What each kind of area is, in plain words (kinds are assigned in scripts/prepare-data.mjs).
 const KIND_TEXT = {
   state: { tag: '', card: 'State or empire' },
+  nation: {
+    tag: 'nation or confederacy',
+    card: 'A nation or confederacy: a people with its own government and territory (a tribal nation or an alliance of nations), but not a state in the European sense',
+  },
   people: { tag: 'people', card: 'A people: an ethnic, language or tribal group, not shown here as an organized state' },
   culture: {
     tag: 'archaeological culture',
     card: 'An archaeological culture: named by archaeologists for shared pottery, tools or burial customs. Known from what it left behind, not as a state',
   },
 };
-const isState = (kind) => kind === 'state';
+// States and nations are political communities: drawn solid and never hidden by the peoples/cultures toggle.
+const isPolity = (kind) => kind === 'state' || kind === 'nation';
 
 function hash(str) {
   let h = 2166136261;
@@ -149,7 +154,7 @@ function searchEmpires(query) {
     results.push({ name, history, peak, kind, score });
   }
   // States before peoples and cultures, better matches first, then the biggest.
-  results.sort((a, b) => (isState(a.kind) === isState(b.kind) ? 0 : isState(a.kind) ? -1 : 1) || b.score - a.score || b.peak.area - a.peak.area);
+  results.sort((a, b) => (isPolity(a.kind) === isPolity(b.kind) ? 0 : isPolity(a.kind) ? -1 : 1) || b.score - a.score || b.peak.area - a.peak.area);
   return results.slice(0, 8);
 }
 
@@ -172,20 +177,20 @@ const world = Globe({ animateIn: true })(els.globe)
   .polygonCapColor((f) => {
     const p = f.properties;
     if (p.EMPIRE === state.selected) return colorFor(p.EMPIRE, p.KIND, { alpha: 0.97 });
-    if (p.EMPIRE === state.hovered) return colorFor(p.EMPIRE, p.KIND, { alpha: isState(p.KIND) ? 0.92 : 0.55 });
+    if (p.EMPIRE === state.hovered) return colorFor(p.EMPIRE, p.KIND, { alpha: isPolity(p.KIND) ? 0.92 : 0.55 });
     return colorFor(p.EMPIRE, p.KIND);
   })
   .polygonSideColor(() => 'rgba(0, 0, 0, 0.25)')
-  .polygonStrokeColor((f) => (isState(f.properties.KIND) ? 'rgba(15, 15, 20, 0.7)' : 'rgba(255,255,255,0.12)'))
+  .polygonStrokeColor((f) => (isPolity(f.properties.KIND) ? 'rgba(15, 15, 20, 0.7)' : 'rgba(255,255,255,0.12)'))
   .polygonAltitude((f) => {
     const e = f.properties.EMPIRE;
     if (e === state.selected) return 0.03;
     if (e === state.hovered) return 0.016;
-    return isState(f.properties.KIND) ? 0.008 : 0.004;
+    return isPolity(f.properties.KIND) ? 0.008 : 0.004;
   })
   .polygonLabel((f) => {
     const p = f.properties;
-    const sub = p.NAME !== p.EMPIRE ? `<small>part of ${escapeHtml(p.EMPIRE)}</small>` : isState(p.KIND) ? '' : `<small>${KIND_TEXT[p.KIND].tag}</small>`;
+    const sub = p.NAME !== p.EMPIRE ? `<small>part of ${escapeHtml(p.EMPIRE)}</small>` : KIND_TEXT[p.KIND].tag ? `<small>${KIND_TEXT[p.KIND].tag}</small>` : '';
     return `<div class="tip"><b>${escapeHtml(p.NAME)}</b>${sub}</div>`;
   })
   .onPolygonHover((f) => {
@@ -219,13 +224,13 @@ function refreshPolygonStyles() {
 }
 
 function visibleFeatures() {
-  return els.showPeoples.checked ? state.features : state.features.filter((f) => isState(f.properties.KIND));
+  return els.showPeoples.checked ? state.features : state.features.filter((f) => isPolity(f.properties.KIND));
 }
 
 function updateLabels() {
   if (!els.showLabels.checked) return world.labelsData([]);
   const snap = state.snapshots[state.index];
-  const labels = snap.empires.filter((e) => e.kind === 'state').slice(0, LABEL_COUNT);
+  const labels = snap.empires.filter((e) => isPolity(e.kind)).slice(0, LABEL_COUNT);
   const sel = snap.empires.find((e) => e.name === state.selected);
   if (sel && !labels.includes(sel)) labels.push(sel);
   world.labelsData(labels);
@@ -308,6 +313,7 @@ function selectEmpire(name, { fly = true } = {}) {
 function renderLegend() {
   const snap = state.snapshots[state.index];
   const states = snap.empires.filter((e) => e.kind === 'state');
+  const nations = snap.empires.filter((e) => e.kind === 'nation');
   const others = (kind) => (els.showPeoples.checked ? snap.empires.filter((e) => e.kind === kind) : []);
   const peoples = others('people');
   const cultures = others('culture');
@@ -317,6 +323,7 @@ function renderLegend() {
     </li>`;
   els.legendList.innerHTML =
     `<li class="legend-sub">States &amp; empires (largest first)</li>${states.map(item).join('')}` +
+    (nations.length ? `<li class="legend-sub">Nations &amp; confederacies</li>${nations.map(item).join('')}` : '') +
     (peoples.length ? `<li class="legend-sub">Peoples</li>${peoples.map(item).join('')}` : '') +
     (cultures.length ? `<li class="legend-sub">Archaeological cultures</li>${cultures.map(item).join('')}` : '');
   const active = els.legendList.querySelector('.active');
@@ -342,7 +349,7 @@ function renderInfo() {
     ${e.note ? `<p>${escapeHtml(e.note)}</p>` : ''}
     <p>Appears ${spanText(history)}${history.length > 1 ? ` (${history.length} maps)` : ''}.
       ${peak.index === state.index && history.length > 1 ? '<strong>This is its largest extent on these maps.</strong>' : ''}</p>
-    ${e.kind === 'state' ? `<p>Size on this map: roughly ${formatArea(e.area)}.</p>` : ''}
+    ${isPolity(e.kind) ? `<p>Size on this map: roughly ${formatArea(e.area)}.</p>` : ''}
     ${parts}
     <p class="muted">Border accuracy: ${precision}.</p>
     <div class="actions">
@@ -372,7 +379,7 @@ function buildSuggestions(text) {
   for (const r of searchEmpires(text)) {
     items.push({
       title: r.name,
-      detail: `${isState(r.kind) ? '' : `${KIND_TEXT[r.kind].tag[0].toUpperCase()}${KIND_TEXT[r.kind].tag.slice(1)} · `}${spanText(r.history)} · largest ${formatYear(state.snapshots[r.peak.index].year)}`,
+      detail: `${KIND_TEXT[r.kind].tag ? `${KIND_TEXT[r.kind].tag[0].toUpperCase()}${KIND_TEXT[r.kind].tag.slice(1)} · ` : ''}${spanText(r.history)} · largest ${formatYear(state.snapshots[r.peak.index].year)}`,
       run: () => goToEmpire(r),
     });
   }
@@ -521,7 +528,8 @@ if (isPhone) {
   els.search.placeholder = 'A year (500 BC) or an empire';
 }
 els.showPeoples.addEventListener('change', () => {
-  if (!els.showPeoples.checked && state.snapshots[state.index].empires.find((e) => e.name === state.selected)?.kind !== 'state') state.selected = null;
+  const selKind = state.snapshots[state.index].empires.find((e) => e.name === state.selected)?.kind;
+  if (!els.showPeoples.checked && selKind && !isPolity(selKind)) state.selected = null;
   world.polygonsData(visibleFeatures());
   renderLegend();
   renderInfo();

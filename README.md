@@ -8,7 +8,7 @@ A 3D globe you can spin to see **which empires, kingdoms and peoples held which 
 - **Search by empire.** Choosing an empire jumps to the map where it is **largest** and flies the globe to it.
 - **Click any territory or name** to see what it is, which provinces or vassals it included, its rough size in km², which maps it appears on, and a "Read more" link.
 - **Timeline.** Drag the slider, use ‹ › or the arrow keys, or press ▶ to watch borders change over time.
-- **States, peoples and archaeological cultures.** Organized states and empires are drawn in solid color. Peoples (ethnic, language or tribal groups, e.g. Scythians) and archaeological cultures (groups named for their pottery or tools, e.g. Funnel-Beaker, Olmec) are drawn faintly, and a checkbox hides them. Names the source uses for a region before any state existed there (e.g. Egypt in 4000 BC) are shown as a culture or people until the state's founding date, with a note.
+- **States, nations, peoples and archaeological cultures.** Organized states and empires are drawn in solid color. From 1492 on, Indigenous nations and confederacies of the Americas (e.g. the Haudenosaunee, Cherokee, Cree) have their own label and are also drawn in solid color. Peoples (ethnic, language or tribal groups, e.g. Scythians) and archaeological cultures (groups named for their pottery or tools, e.g. Funnel-Beaker, Olmec) are drawn faintly, and a checkbox hides them. Names the source uses for a region before any state existed there (e.g. Egypt in 4000 BC) are shown as a culture or people until the state's founding date, with a note.
 - **Starting points.** First-time visitors see a few one-click suggestions (Ancient Egypt, Alexander the Great, the Roman Empire at its height, the Mongol conquests, 1492, the eve of World War I).
 - **Shareable links.** The web address updates as you go (e.g. `…#year=-323&empire=Empire of Alexander`), so you can bookmark a view or send it to someone.
 - Each empire keeps the **same color on every map**, so you can follow it through time.
@@ -32,6 +32,8 @@ The borders come from the [historical-basemaps](https://github.com/aourednik/his
 `npm run prepare-data` re-downloads the source and rebuilds everything in `data/`: it simplifies the shapes so the globe stays fast, fixes a few malformed records, merges names the source spells differently for the same state (e.g. "Han" / "Han Empire", "UK" / "United Kingdom"; see `SAME_AS` in `scripts/prepare-data.mjs`), and builds the search index.
 
 ### Known limitations
+
+- The source's 1492 map of the Americas mixes historical nations with some present-day names (e.g. "Cherokee (Oklahoma)", reservation names) that did not exist in 1492.
 
 - Borders are approximate. Ancient frontiers were usually zones of influence, not lines.
 - Clear-cut duplicate names are merged, but successor states are deliberately kept separate (e.g. Roman Republic vs. Roman Empire, Russian Empire vs. USSR vs. Russia).

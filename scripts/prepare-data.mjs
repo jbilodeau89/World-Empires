@@ -63,6 +63,7 @@ const SAME_AS = {
   'Imperial Japan': 'Empire of Japan',
   'Kingdom of Brazil': 'Empire of Brazil', // source error: Brazil was an empire 1822–1889
   Nemay: 'Neman culture', // Stone Age culture of the Neman river basin (Lithuania)
+  'Mexihcah (Triple Alliance)': 'Aztec Empire', // 1492 map uses the Nahuatl name
 };
 
 // Areas the source draws as separate rulers that belong under one empire.
@@ -127,6 +128,43 @@ const BECAME_STATE = {
 };
 
 const KIND_OF = new Map(Object.entries(KIND_LIST).flatMap(([kind, names]) => names.map((n) => [fold(n), kind])));
+// Source labels that need a different name depending on the map's year.
+const NAME_BY_YEAR = {
+  // central China: the source's 'Sinic' and 'Zhoa' are not names of real states
+  Sinic: { [-1500]: 'Shang', [-1000]: 'Western Zhou', [-700]: 'Eastern Zhou' },
+  Zhoa: { [-1500]: 'Shang', [-1000]: 'Western Zhou', [-700]: 'Eastern Zhou' },
+  // the 1492 map labels the Inca Empire's territory with the name of its main language/people
+  Quechua: { 1492: 'Inca Empire' },
+};
+const renameForYear = (name, year) => (name && NAME_BY_YEAR[name]?.[year]) || name;
+
+// Short notes shown on an entry's card.
+const NOTES = {
+  Xia: 'The Xia dynasty is known mainly from Chinese histories written over a thousand years later, and historians debate whether it existed as a state. Many archaeologists link it to the Erlitou culture (c. 1900–1500 BC).',
+};
+
+// In the Americas from 1492 on, the source maps hundreds of Indigenous nations. They had their own
+// governments but were not states in the European sense, so they get their own label. These are
+// the entries there that ARE states (empires, colonies, modern countries); everything else is a nation.
+const AMERICAS_STATES = new Set([
+  'Aztec Empire', 'Inca Empire', 'Mixtec Empire', 'Maya city-states', 'Kingdom of Hawaii',
+  'P’urhépecha', "K'iche'", 'Kaqchikel', // Tarascan state and highland Maya kingdoms, 1492
+  'Viceroyalty of New Spain', 'Viceroyalty of the Río de la Plata', 'Cuba (Spain)', 'Hispaniola (Spain)',
+  'Spanish Habsburg', 'Spain', 'Portugal', 'England', 'United Kingdom', 'France', 'Netherlands', 'Danemark',
+  'Denmark', 'Denmark-Norway', 'Essequibo', 'Surinam', 'Cayenne', 'South Carolina', 'Louisiana',
+  "Rupert's Land", 'Acadian Peninsula (UK)', 'Dutch Guiana', 'British Guiana', 'French Guiana',
+  'Netherlands Antilles', 'Dominion of Newfoundland', 'Empire of Brazil',
+  'United States', 'Canada', 'Mexico', 'Brazil', 'Argentina', 'Bolivia', 'Colombia', 'Venezuela', 'Peru',
+  'Ecuador', 'Chile', 'Uruguay', 'Paraguay', 'Guyana', 'Suriname', 'Belize', 'Guatemala', 'Honduras',
+  'El Salvador', 'Nicaragua', 'Costa Rica', 'Panama', 'Cuba', 'Haiti', 'Dominican Republic', 'Jamaica',
+  'Puerto Rico', 'Bahamas', 'Turks and Caicos Islands', 'Trinidad', 'Barbados', 'Martinique', 'Guadeloupe',
+  'Dominica', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Antigua and Barbuda', 'Grenada',
+  'Montserrat', 'Anguilla', 'Saint Martin', 'Saint Barthelemy', 'Saint Kitts and Nevis',
+  'United States Virgin Islands', 'Greenland', 'Samoa', 'American Samoa', 'Niue', 'Tonga',
+  'Wallis and Futuna Islands',
+]);
+const isAmericasNation = (name, year, lng) => year >= 1492 && lng < -30 && !AMERICAS_STATES.has(name);
+
 const earlyNote = (name, year) => (BECAME_STATE[name] && year < BECAME_STATE[name].from ? BECAME_STATE[name] : null);
 const kindOf = (name, year) => earlyNote(name, year)?.before || KIND_OF.get(fold(name))
   || (/\b(culture|complex)\b/i.test(name) ? 'culture' : PEOPLE_RE.test(fold(name)) ? 'people' : 'state');
@@ -210,8 +248,8 @@ for (const { filename: file } of sourceIndex.years) {
   const groups = new Map();
   for (const f of gj.features) {
     const p = f.properties || {};
-    const name = clean(p.NAME);
-    const top = clean(p.SUBJECTO) || name;
+    const name = renameForYear(clean(p.NAME), year);
+    const top = renameForYear(clean(p.SUBJECTO), year) || name;
     const empire = PART_OF[top] || top;
     if (!empire || !f.geometry) continue; // open sea, unclaimed land, or a record with no shape
     const kind = kindOf(empire, year);
@@ -234,6 +272,12 @@ for (const { filename: file } of sourceIndex.years) {
     groups.set(empire, g);
   }
 
+  // Now that each group's location is known, label Indigenous nations of the Americas.
+  for (const g of groups.values()) {
+    if (g.kind === 'state' && g.best && isAmericasNation(g.name, year, g.best[0])) g.kind = 'nation';
+  }
+  for (const f of features) f.properties.KIND = groups.get(f.properties.EMPIRE).kind;
+
   writeFileSync(join(outDir, file), JSON.stringify({ type: 'FeatureCollection', features }));
 
   snapshots.push({
@@ -249,7 +293,7 @@ for (const { filename: file } of sourceIndex.years) {
         lng: Math.round(g.best[0] * 100) / 100,
         lat: Math.round(g.best[1] * 100) / 100,
         prec: g.prec,
-        ...(earlyNote(g.name, year) && { note: earlyNote(g.name, year).note }),
+        ...((earlyNote(g.name, year) || NOTES[g.name]) && { note: earlyNote(g.name, year)?.note || NOTES[g.name] }),
         parts: [...g.parts].sort(),
       })),
   });
